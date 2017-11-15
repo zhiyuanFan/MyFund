@@ -152,6 +152,14 @@ class ViewController: UIViewController, UISearchBarDelegate {
         })
         
     }
+    
+    /*
+     总投资金额    4,000.00元
+     申购日份额净值    1.8580元/份 (2017-11-10)
+     申购费率    0.12%
+     申购费    4.80元
+     基金份额    2,150.27份
+     */
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
@@ -219,11 +227,14 @@ extension ViewController : UITableViewDelegate, UITableViewDataSource {
     }
     
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-        if let fundCode = searchBar.text, fundCode != "" {
+        if let fundCode = searchBar.text, fundCode != "", fundCode.lengthOfBytes(using: String.Encoding.utf8) == 6, Int(fundCode) != nil {
             searchBar.resignFirstResponder()
             if historyList != nil { historyList?.removeFromSuperview() }
             self.currentFundCode = fundCode
             fetchServerData(fundCode: fundCode)
+        } else {
+            let message = Message(title: "请输入有效的基金代码", backgroundColor: .black)
+            Whisper.show(whisper: message, to: self.navigationController!, action: .show)
         }
     }
     
