@@ -220,6 +220,8 @@ class ViewController: UIViewController, UISearchBarDelegate {
 //Events
 extension ViewController : UITableViewDelegate, UITableViewDataSource {
     @objc func refreshBtnOnClick() {
+        countText?.text = nil
+        countText?.resignFirstResponder()
         fetchServerData(fundCode: self.currentFundCode)
     }
     
