@@ -10,6 +10,8 @@ import UIKit
 import Alamofire
 import SnapKit
 import Whisper
+import RxSwift
+import RxCocoa
 
 class ViewController: UIViewController, UISearchBarDelegate {
 
@@ -26,6 +28,11 @@ class ViewController: UIViewController, UISearchBarDelegate {
     var gszLabel: UILabel?      //估算值
     var gszzfLabel: UILabel?    //估算值涨幅
     var gszDateLabel: UILabel?  //估算值日期
+    var countLabel: UILabel?    //份额Label
+    var countText: UITextField? //份额Text
+    var incomeLabel: UILabel?   //今日收益
+    
+    var bag = DisposeBag()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -56,12 +63,14 @@ class ViewController: UIViewController, UISearchBarDelegate {
         gszLabel?.removeFromSuperview()
         gszzfLabel?.removeFromSuperview()
         gszDateLabel?.removeFromSuperview()
+        incomeLabel?.removeFromSuperview()
 
         guard let dwjz = fund?.dwjz, let gsz = fund?.gsz else {
             return
         }
         let dwjzFV = (dwjz as NSString).floatValue
         let gszFV = (gsz as NSString).floatValue
+        let delta = gszFV - dwjzFV
         let redColor = colorWithRGB(red: 254, green: 4, blue: 2)
         let greenColor = colorWithRGB(red: 2, green: 154, blue: 2)
         let gzColor: UIColor = dwjzFV > gszFV ? greenColor : redColor
@@ -112,7 +121,40 @@ class ViewController: UIViewController, UISearchBarDelegate {
         gszDateLabel?.font = UIFont.systemFont(ofSize: 16)
         self.view.addSubview(gszDateLabel!)
         
+        countLabel = UILabel()
+        countLabel?.text = "份额数量: "
+        countLabel?.font = UIFont.systemFont(ofSize: 20)
+        self.view.addSubview(countLabel!)
+        
+        countText = UITextField()
+        countText?.keyboardType = .decimalPad
+        countText?.placeholder = "份额数,例:5395.23"
+        countText?.rx.text.orEmpty
+            .subscribe(onNext: { [weak self] (count) in
+                self?.calculateIncome(count: count, delta: delta, gzColor: gzColor)
+            }).disposed(by: bag)
+        self.view.addSubview(countText!)
+
+        
+        incomeLabel = UILabel()
+        self.view.addSubview(incomeLabel!)
+        
         setupUI()
+    }
+    
+    func calculateIncome(count: String = "0.0", delta: Float, gzColor: UIColor) {
+        if let count = Float(count) {
+            let incomeFV = delta * count
+            let incomeFVStr = String(format: "%.2f",  incomeFV)
+            
+            let incomeStr = "今日收益: \(incomeFVStr)"
+            let incomeLength = incomeFVStr.lengthOfBytes(using: String.Encoding.utf8)
+            let incomeRange = getNumRange(from: incomeStr, numLength: incomeLength)
+            let incomeAttrStr = NSMutableAttributedString(string: incomeStr)
+            incomeAttrStr.addAttributes([NSAttributedStringKey.foregroundColor : gzColor], range: incomeRange)
+            incomeLabel?.font = UIFont.systemFont(ofSize: 24)
+            incomeLabel?.attributedText = incomeAttrStr
+        }
     }
     
     func setupUI() {
@@ -151,15 +193,23 @@ class ViewController: UIViewController, UISearchBarDelegate {
             make.left.equalTo(20)
         })
         
+        countLabel?.snp.makeConstraints({ (make) in
+            make.top.equalTo((gszDateLabel?.snp.bottom)!).offset(10)
+            make.left.equalTo(20)
+        })
+        
+        countText?.snp.makeConstraints({ (make) in
+            make.centerY.equalTo((countLabel?.snp.centerY)!)
+            make.left.equalTo((countLabel?.snp.right)!).offset(5)
+            make.size.equalTo(CGSize(width: 150, height: 40))
+        })
+        
+        incomeLabel?.snp.makeConstraints({ (make) in
+            make.top.equalTo((countText?.snp.bottom)!).offset(10)
+            make.left.equalTo(20)
+        })
+        
     }
-    
-    /*
-     总投资金额    4,000.00元
-     申购日份额净值    1.8580元/份 (2017-11-10)
-     申购费率    0.12%
-     申购费    4.80元
-     基金份额    2,150.27份
-     */
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
@@ -278,6 +328,9 @@ extension ViewController {
         for (i,char) in reviewStr.enumerated() {
             let s = String(char)
             if let _ = Int(s) {
+                location = i
+                break
+            } else if s == "-" {
                 location = i
                 break
             }
